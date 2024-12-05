@@ -149,5 +149,3 @@ torchrun --nproc_per_node=4 --master_port=23325 src/test_ddp.py \
 
 ## Reference
 The implementation is based on [HuggingFace](https://github.com/huggingface/transformers).
-
-LLM-BS is built based on the following projects: [LC-Rec](https://github.com/zhengbw0324/LC-Rec)
