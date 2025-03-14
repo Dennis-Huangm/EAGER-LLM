@@ -1,16 +1,7 @@
-## LLM-BS: Enhancing Large Language Models for Recommendation through Exogenous Behavior-Semantics Integration
+## EAGER-LLM: Enhancing Large Language Models as Recommenders through Exogenous Behavior-Semantic Integration
 ## Introduction
 
-we
-propose LLM-BS, a decoder-only LLM-based generative recommendation framework that integrates endogenous and exogenous
-Behavioral and Semantic information in a non-intrusive manner.
-Specifically, we propose 1) a dual-source, knowledge-rich item indexing scheme that integrates indexing sequences for exogenous
-signals, enabling efficient link-wide processing; 2) a multi-scale
-reconfiguration alignment that non-intrusively guides the model
-toward a deeper understanding of both collaborative and semantic
-signals; 3) an Annealing Adapter designed to finely balance the
-model’s recommendation performance with its comprehension capabilities. We demonstrate LLM-BS’s effectiveness through rigorous
-testing on three public benchmarks.
+Large language models (LLMs) are increasingly leveraged as foundational backbones in the development of advanced recommender systems, offering enhanced capabilities through their extensive knowledge and reasoning. Existing llm-based recommender systems (RSs) often face challenges due to the significant differences between the linguistic semantics of pre-trained LLMs and the collaborative semantics essential for RSs. These systems use pre-trained linguistic semantics but learn collaborative semantics from scratch via the llm-Backbone. However, LLMs are not designed for recommendations, leading to inefficient collaborative learning, weak result correlations, and poor integration of traditional RS features. To address these challenges, we propose \textbf{EAGER-LLM}, a decoder-only llm-based generative recommendation framework that integrates endogenous and exogenous behavioral and semantic information in a non-intrusive manner. Specifically, we propose 1) dual-source knowledge-rich item indices that integrates indexing sequences for exogenous signals, enabling efficient link-wide processing; 2) non-invasive multiscale alignment reconstruction tasks guide the model toward a deeper understanding of both collaborative and semantic signals; 3) an annealing adapter designed to finely balance the model’s recommendation performance with its comprehension capabilities. We demonstrate EAGER-LLM’s effectiveness through rigorous testing on three public benchmarks.
 
 ![model](./asset/model.png)
 
@@ -148,4 +139,4 @@ torchrun --nproc_per_node=4 --master_port=23325 src/test_ddp.py \
 
 
 ## Reference
-The implementation is based on [HuggingFace](https://github.com/huggingface/transformers).
+The implementation is based on [HuggingFace](https://github.com/huggingface/transformers) and [LC-Rec](https://github.com/zhengbw0324/LC-Rec).
