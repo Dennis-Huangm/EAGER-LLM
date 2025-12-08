@@ -8,6 +8,7 @@ import numpy as np
 import torch
 from torch.utils.data import ConcatDataset
 from data import SeqRecDataset, ItemFeatDataset, ItemSearchDataset, FusionSeqRecDataset, SeqRecTestDataset, PreferenceObtainDataset
+from sequential_inter_dataset import SequentialInterDataset
 
 
 def parse_global_args(parser):
@@ -32,7 +33,9 @@ def parse_dataset_args(parser):
                         help="Downstream tasks, separate by comma")
     parser.add_argument("--dataset", type=str, default="Sports", help="Dataset name")
     parser.add_argument("--version", type=str, default="7_0", help="Dataset date")
+    parser.add_argument("--date", type=str, default="7_0", help="Dataset date (alias for version)")
     parser.add_argument("--index_file", type=str, default=".index.json", help="the item indices file")
+    parser.add_argument("--inter_file", type=str, default="", help="path to .inter format file for direct loading")
 
     parser.add_argument("--max_his_len", type=int, default=20,
                         help="the max number of items in history sequence, -1 means no limit")
@@ -180,8 +183,22 @@ def load_datasets(args):
     return train_data, valid_data
 
 def load_test_dataset(args):
-
-    if args.test_task.lower() == "seqrec":
+    
+    # Check if using direct .inter file
+    if hasattr(args, 'inter_file') and args.inter_file:
+        print(f"Loading data from .inter file: {args.inter_file}")
+        index_file = getattr(args, 'index_file', None)
+        if index_file:
+            print(f"Using index file: {index_file}")
+        test_data = SequentialInterDataset(
+            data_file=args.inter_file,
+            mode="test",
+            max_his_len=args.max_his_len,
+            his_sep=args.his_sep,
+            sample_num=args.sample_num,
+            index_file=index_file
+        )
+    elif args.test_task.lower() == "seqrec":
         test_data = SeqRecDataset(args, mode="test", sample_num=args.sample_num)
         # test_data = SeqRecTestDataset(args, sample_num=args.sample_num)
     elif args.test_task.lower() == "itemsearch":

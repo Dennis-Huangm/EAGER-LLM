@@ -1,6 +1,32 @@
 import math
 import re
 
+def extract_first_sid(text):
+    """
+    Extract the first complete SID from text.
+    SID format: <|a_xxx|><|b_xxx|><|c_xxx|><|d_xxx|> or with <|e_xxx|>
+    
+    Args:
+        text: Generated text that may contain one or more SIDs
+    
+    Returns:
+        First complete SID string, or original text if no valid SID found
+    """
+    # Pattern to match a complete SID (4 or 5 tokens)
+    # Match: <|X_digits|> repeated 4-5 times
+    pattern = r'(<\|[a-z]_\d+\|>){4,5}'
+    
+    match = re.search(pattern, text)
+    if match:
+        sid = match.group(0)
+        # Ensure we got a complete set (ends with |>)
+        if sid.endswith('|>'):
+            return sid
+    
+    # If no valid SID pattern found, return cleaned original text
+    # (fallback for edge cases)
+    return text.rstrip(',')
+
 def extract_numbers(text):
     text_list = text.split('><')
     text_num = [0] * len(text_list)
@@ -27,8 +53,12 @@ def match_codes(prediction,target_item):
 def get_topk_results(predictions, scores, targets, k, all_items=None):
     results = []
     B = len(targets)
-    predictions = [_.split("Response:")[-1] for _ in predictions]
+    # Handle both prompt-based format (with "Response:") and pure SID format
+    predictions = [_.split("Response:")[-1] if "Response:" in _ else _ for _ in predictions]
+    # Clean up: remove spaces
     predictions = [_.strip().replace(" ","") for _ in predictions]
+    # Extract first complete SID from each prediction (handles extra tokens)
+    predictions = [extract_first_sid(pred) for pred in predictions]
     
     wrong_code = 0
     if all_items is not None:
