@@ -81,7 +81,6 @@ def test_vllm(args):
         batch_prompts = prompts[start_idx:end_idx]
         batch_targets = targets[start_idx:end_idx]
         bs = len(batch_targets)
-        print(batch_prompts[0])
         
         # Convert prompts to dict format required by beam_search
         # beam_search expects List[Dict] with "prompt" key
@@ -91,21 +90,26 @@ def test_vllm(args):
         # beam_search returns List[BeamSearchOutput] where each BeamSearchOutput has sequences
         outputs = llm.beam_search(batch_prompts_dict, beam_search_params)
         # Process outputs
+        # Note: seq.text contains the FULL sequence (prompt + generated), need to remove prompt
         predictions = []
         scores = []
         
-        for output in outputs:
+        for i, output in enumerate(outputs):
+            prompt_text = batch_prompts[i]  # Original prompt for this sample
             # BeamSearchOutput contains sequences (list of BeamSearchSequence)
             # Each BeamSearchSequence has: text, cum_logprob, finish_reason
             for seq in output.sequences:
-                pred_text = seq.text.strip().replace(" ", "").rstrip(",")
+                # Remove the prompt prefix from the full text to get only generated part
+                full_text = seq.text
+                if full_text.startswith(prompt_text):
+                    generated_text = full_text[len(prompt_text):]
+                else:
+                    generated_text = full_text
+                pred_text = generated_text.strip().replace(" ", "").rstrip(",")
                 predictions.append(pred_text)
                 scores.append(seq.cum_logprob if seq.cum_logprob is not None else 0.0)
         
         # Convert scores to tensor for compatibility with get_topk_results
-        print(f"len(outputs)={len(outputs)}")
-        print(f"len(outputs[0].sequences)={len(outputs[0].sequences)}")
-        print(f"outputs[0].sequences[0].text={outputs[0].sequences[0].text}")
         scores = torch.tensor(scores)
         
         # Get topk results

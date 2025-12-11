@@ -3,13 +3,13 @@
 # Example script to run evaluation on sequential-multievent-500m.inter dataset
 
 # Set paths
-INTER_FILE="/home/hongminjie/EAGER-LLM/sequential-multievent-demo.inter"
-INDEX_FILE="/home/hongminjie/EAGER-LLM/sequential-multievent-500m.index.json"
-CKPT_PATH="/home/hongminjie/LLaMA-Factory/saves/Qwen3-1.7B-Base/full/train_2025-12-03-14-20-46/checkpoint-500"  # Update this to your model checkpoint path
+INTER_FILE="/root/autodl-tmp/huangminrui/EAGER-LLM/sequential-multievent-demo.inter"
+INDEX_FILE="/root/autodl-tmp/huangminrui/EAGER-LLM/sequential-multievent-500m.index.json"
+CKPT_PATH="/root/autodl-tmp/huangminrui/LLaMA-Factory/saves/Qwen3-1.7B/full/train_2025-12-11-23-29-46/checkpoint-2400"  # Update this to your model checkpoint path
 RESULTS_FILE="./results/sequential-multievent-500m-results.json"
 
 # Run distributed test
-CUDA_VISIBLE_DEVICES=6,7 torchrun --nproc_per_node=2 \
+CUDA_VISIBLE_DEVICES=3 torchrun --nproc_per_node=1 \
     src/test_ddp.py \
     --inter_file ${INTER_FILE} \
     --index_file ${INDEX_FILE} \
@@ -17,12 +17,12 @@ CUDA_VISIBLE_DEVICES=6,7 torchrun --nproc_per_node=2 \
     --results_file ${RESULTS_FILE} \
     --test_task SeqRec \
     --test_prompt_ids "0" \
-    --test_batch_size 1 \
+    --test_batch_size 32 \
     --num_beams 20 \
     --sample_num -1 \
     --max_his_len 20 \
     --his_sep "," \
-    --metrics "hit@1,hit@5,hit@10,ndcg@5,ndcg@10" \
+    --metrics "recall@5,recall@10,recall@20,ndcg@5,ndcg@10,ndcg@20" \
     --seed 42
 
 # Notes:

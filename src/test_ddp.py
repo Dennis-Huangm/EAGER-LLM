@@ -27,12 +27,13 @@ def test_ddp(args):
     if local_rank == 0:
         print(vars(args))
 
-    dist.init_process_group(backend="nccl", world_size=world_size, rank=local_rank)
+    dist.init_process_group(backend="nccl", world_size=world_size, rank=local_rank, device_id=torch.device("cuda", local_rank))
 
     device_map = {"": local_rank}
     device = torch.device("cuda",local_rank)
 
     tokenizer = AutoTokenizer.from_pretrained(args.ckpt_path, trust_remote_code=True)
+    tokenizer.padding_side = "left"  # Required for batch generation with decoder-only models
     if args.lora:
         model = AutoModelForCausalLM.from_pretrained(
             args.base_model,
@@ -88,7 +89,6 @@ def test_ddp(args):
     with torch.no_grad():
         for step, batch in enumerate(tqdm(test_loader)):
             inputs = batch[0].to(device)
-            print(inputs)
             targets = batch[1]
             bs = len(targets)
             num_beams = args.num_beams
@@ -187,6 +187,8 @@ def test_ddp(args):
             json.dump(save_data, f, indent=4)
         print("Results saved to: ", args.results_file)
 
+    # Clean up distributed process group
+    dist.destroy_process_group()
 
 
 if __name__ == "__main__":

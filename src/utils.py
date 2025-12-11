@@ -41,7 +41,7 @@ def parse_dataset_args(parser):
                         help="the max number of items in history sequence, -1 means no limit")
     parser.add_argument("--add_prefix", action="store_true", default=False,
                         help="whether add sequential prefix in history")
-    parser.add_argument("--his_sep", type=str, default=", ", help="The separator used for history")
+    parser.add_argument("--his_sep", type=str, default=",", help="The separator used for history")
     parser.add_argument("--only_train_response", action="store_true", default=False,
                         help="whether only train on responses")
 

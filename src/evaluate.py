@@ -88,16 +88,27 @@ def get_topk_results(predictions, scores, targets, k, all_items=None):
 def get_metrics_results(topk_results, metrics):
     res = {}
     for m in metrics:
-        if m.lower().startswith("hit"):
-            k = int(m.split("@")[1])
-            res[m] = hit_k(topk_results, k)
-        elif m.lower().startswith("ndcg"):
+        if m.lower().startswith("ndcg"):
             k = int(m.split("@")[1])
             res[m] = ndcg_k(topk_results, k)
+        elif m.lower().startswith("recall"):
+            k = int(m.split("@")[1])
+            res[m] = recall_k(topk_results, k)
         else:
             raise NotImplementedError
 
     return res
+
+
+def recall_k(topk_results, k):
+    """Calculate Recall@K. For single-target recommendation, recall@k equals hit@k."""
+    recall = 0.0
+    for row in topk_results:
+        res = row[:k]
+        # For single ground truth, recall = 1 if hit, else 0
+        if sum(res) > 0:
+            recall += 1
+    return recall
 
 
 def ndcg_k(topk_results, k):
@@ -110,13 +121,4 @@ def ndcg_k(topk_results, k):
             one_ndcg += res[i] / math.log(i + 2, 2)
         ndcg += one_ndcg
     return ndcg
-
-
-def hit_k(topk_results, k):
-    hit = 0.0
-    for row in topk_results:
-        res = row[:k]
-        if sum(res) > 0:
-            hit += 1
-    return hit
 
