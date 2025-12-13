@@ -1,5 +1,7 @@
 import os
 import json
+import pickle
+import hashlib
 import torch
 from torch.utils.data import Dataset
 import numpy as np
@@ -36,6 +38,14 @@ class SequentialInterDataset(Dataset):
         else:
             raise NotImplementedError("Only test mode is supported")
     
+    def _get_cache_path(self, suffix=""):
+        """Generate cache file path based on data file and parameters"""
+        cache_key = f"{self.data_file}_{self.sample_num}_{self.max_his_len}_{self.his_sep}_{self.index_file}{suffix}"
+        cache_hash = hashlib.md5(cache_key.encode()).hexdigest()[:16]
+        cache_dir = os.path.dirname(self.data_file) or "."
+        base_name = os.path.basename(self.data_file)
+        return os.path.join(cache_dir, f".{base_name}.{cache_hash}.cache")
+    
     def _load_index_mapping(self):
         """Load item_id to sid mapping from index.json file"""
         print(f"Loading index mapping from {self.index_file}...")
@@ -52,37 +62,48 @@ class SequentialInterDataset(Dataset):
         print(f"Loaded {len(self.item_to_sid)} item mappings")
     
     def _load_data(self):
-        """Load interaction data from .inter file"""
-        self.user_inters = []
+        """Load interaction data from .inter file with caching"""
+        cache_path = self._get_cache_path("_raw")
         
+        # Try loading from cache
+        if os.path.exists(cache_path):
+            try:
+                cache_mtime = os.path.getmtime(cache_path)
+                data_mtime = os.path.getmtime(self.data_file)
+                if cache_mtime > data_mtime:
+                    print(f"Loading raw data from cache: {cache_path}")
+                    with open(cache_path, 'rb') as f:
+                        self.user_inters = pickle.load(f)
+                    print(f"Loaded {len(self.user_inters)} users from cache")
+                    return
+            except Exception as e:
+                print(f"Cache load failed: {e}, falling back to raw file")
+        
+        self.user_inters = []
         print(f"Loading data from {self.data_file}...")
+        
+        # Use larger buffer for better I/O
+        buffer_size = 64 * 1024 * 1024  # 64MB
         
         # First pass: count total lines (only if we need to sample)
         total_lines = None
+        sample_ratio = 1.0
         if self.sample_num > 0:
             print("Counting total lines for sampling...")
-            with open(self.data_file, 'r') as f:
-                total_lines = sum(1 for _ in f) - 1  # Subtract header
+            with open(self.data_file, 'r', buffering=buffer_size) as f:
+                total_lines = sum(1 for _ in f) - 1
             print(f"Total users: {total_lines}")
-            
-            # Calculate sampling ratio
             sample_ratio = min(1.0, self.sample_num / total_lines)
             print(f"Sampling ratio: {sample_ratio:.4f}")
         
-        # Second pass: load data (with optional sampling)
-        with open(self.data_file, 'r') as f:
-            # Skip header
+        # Second pass: load data
+        with open(self.data_file, 'r', buffering=buffer_size) as f:
             header = f.readline()
             
-            # Read data
-            loaded_count = 0
             for line_idx, line in enumerate(f):
-                # Early sampling: skip lines based on ratio
                 if self.sample_num > 0 and sample_ratio < 1.0:
                     if np.random.random() > sample_ratio:
                         continue
-                    
-                    # Stop if we have enough samples
                     if len(self.user_inters) >= self.sample_num:
                         break
                 
@@ -90,24 +111,44 @@ class SequentialInterDataset(Dataset):
                     print(f"Processed {line_idx} lines, loaded {len(self.user_inters)} users...")
                 
                 parts = line.strip().split()
-                if len(parts) < 3:  # At least user_id + 2 items
+                if len(parts) < 3:
                     continue
                 
-                user_id = parts[0]
-                item_ids = parts[1:]
-                
-                # Convert item IDs to strings
-                item_ids = [str(item_id) for item_id in item_ids]
-                
                 self.user_inters.append({
-                    'user_id': user_id,
-                    'items': item_ids
+                    'user_id': parts[0],
+                    'items': parts[1:]
                 })
         
         print(f"Loaded {len(self.user_inters)} users")
+        
+        # Save to cache
+        try:
+            print(f"Saving raw data cache to: {cache_path}")
+            with open(cache_path, 'wb') as f:
+                pickle.dump(self.user_inters, f, protocol=pickle.HIGHEST_PROTOCOL)
+        except Exception as e:
+            print(f"Failed to save cache: {e}")
     
     def _process_test_data(self):
-        """Process data for testing - predict the last item"""
+        """Process data for testing - predict the last item, with caching"""
+        cache_path = self._get_cache_path("_processed")
+        
+        # Try loading from cache
+        if os.path.exists(cache_path):
+            try:
+                cache_mtime = os.path.getmtime(cache_path)
+                data_mtime = os.path.getmtime(self.data_file)
+                index_mtime = os.path.getmtime(self.index_file) if self.index_file else 0
+                if cache_mtime > max(data_mtime, index_mtime):
+                    print(f"Loading processed data from cache: {cache_path}")
+                    with open(cache_path, 'rb') as f:
+                        inter_data = pickle.load(f)
+                    print(f"Loaded {len(inter_data)} test instances from cache")
+                    return inter_data
+            except Exception as e:
+                print(f"Cache load failed: {e}, reprocessing...")
+        
+        print("Processing test data...")
         inter_data = []
         
         for user_inter in self.user_inters:
@@ -137,8 +178,15 @@ class SequentialInterDataset(Dataset):
             one_data["inters"] = self.his_sep.join(history) + self.his_sep
             inter_data.append(one_data)
         
-        # Sampling is already done in _load_data, no need to sample again
         print(f"Processed {len(inter_data)} test instances")
+        
+        # Save to cache
+        try:
+            print(f"Saving processed data cache to: {cache_path}")
+            with open(cache_path, 'wb') as f:
+                pickle.dump(inter_data, f, protocol=pickle.HIGHEST_PROTOCOL)
+        except Exception as e:
+            print(f"Failed to save cache: {e}")
         
         return inter_data
     
