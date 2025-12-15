@@ -62,9 +62,6 @@ class Collator(object):
                     labels[i, :end] = -100
 
         inputs["labels"] = labels
-        print(inputs["input_ids"][0])
-        print(inputs["labels"][0])
-        pp
         return inputs
     
 class Collator_emb(object):

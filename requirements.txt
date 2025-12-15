@@ -1,0 +1,11 @@
+torch
+accelerate
+bitsandbytes
+deepspeed
+evaluate
+peft
+sentencepiece
+tqdm
+transformers
+datasets==4.0.0
+swanlab
