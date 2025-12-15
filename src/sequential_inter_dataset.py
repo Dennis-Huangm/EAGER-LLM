@@ -13,7 +13,7 @@ class SequentialInterDataset(Dataset):
     Format: user_id item_id_1 item_id_2 ... item_id_n
     """
     
-    def __init__(self, data_file, mode="test", max_his_len=20, 
+    def __init__(self, data_file, mode="train", max_his_len=20, 
                  his_sep=",", sample_num=-1, index_file=None):
         super().__init__()
         
@@ -26,17 +26,21 @@ class SequentialInterDataset(Dataset):
         
         # Load index mapping if provided
         self.item_to_sid = None
+        self.indices = None
+        self.token_2_idx = None
         if self.index_file:
             self._load_index_mapping()
         
         # Load data
         self._load_data()
         
-        # Process data for test mode
-        if self.mode == 'test':
+        # Process data based on mode
+        if self.mode == 'train':
+            self.inter_data = self._process_train_data()
+        elif self.mode == 'test':
             self.inter_data = self._process_test_data()
         else:
-            raise NotImplementedError("Only test mode is supported")
+            raise NotImplementedError(f"Mode {self.mode} is not supported")
     
     def _get_cache_path(self, suffix=""):
         """Generate cache file path based on data file and parameters"""
@@ -52,12 +56,18 @@ class SequentialInterDataset(Dataset):
         with open(self.index_file, 'r') as f:
             index_data = json.load(f)
         
+        # Store raw indices for get_new_tokens
+        self.indices = index_data
+        
         # Convert to sid format: join the four tokens
         self.item_to_sid = {}
         for item_id, tokens in index_data.items():
             # Join the four tokens: <|a_xxx|><|b_xxx|><|c_xxx|><|d_xxx|>
             sid = ''.join(tokens)
             self.item_to_sid[item_id] = sid
+        
+        # Create reverse mapping: sid -> item_id
+        self.token_2_idx = {sid: item_id for item_id, sid in self.item_to_sid.items()}
         
         print(f"Loaded {len(self.item_to_sid)} item mappings")
     
@@ -129,6 +139,38 @@ class SequentialInterDataset(Dataset):
         except Exception as e:
             print(f"Failed to save cache: {e}")
     
+    def _process_train_data(self):
+        """Process data for training - create multiple samples per user"""
+        print("Processing training data...")
+        inter_data = []
+        
+        for user_inter in self.user_inters:
+            items = user_inter['items']
+            
+            for i in range(1, len(items)):
+                one_data = dict()
+                
+                # Target item
+                target_item = items[i]
+                if self.item_to_sid:
+                    target_item = self.item_to_sid.get(target_item, target_item)
+                one_data["item"] = target_item
+                
+                # History items
+                history = items[:i]
+                if self.max_his_len > 0:
+                    history = history[-self.max_his_len:]
+                
+                # Convert history items to sid format if mapping exists
+                if self.item_to_sid:
+                    history = [self.item_to_sid.get(item_id, item_id) for item_id in history]
+                
+                one_data["inters"] = self.his_sep.join(history)
+                inter_data.append(one_data)
+        
+        print(f"Processed {len(inter_data)} training instances")
+        return inter_data
+    
     def _process_test_data(self):
         """Process data for testing - predict the last item, with caching"""
         cache_path = self._get_cache_path("_processed")
@@ -194,15 +236,31 @@ class SequentialInterDataset(Dataset):
         return len(self.inter_data)
     
     def __getitem__(self, index):
+        """Return raw sequence data for pretraining (no prompts)"""
         d = self.inter_data[index]
         
-        # Input: history SID sequence
+        # Input: history sequence, Output: target item
         input_text = d["inters"]
-        
-        # Output: target SID
         output_text = d["item"]
         
         return dict(input_ids=input_text, labels=output_text)
+    
+    def get_new_tokens(self):
+        """Get all new tokens that need to be added to tokenizer"""
+        if hasattr(self, 'new_tokens_cache') and self.new_tokens_cache is not None:
+            return self.new_tokens_cache
+        
+        if self.indices is None:
+            # No index file, no new tokens
+            self.new_tokens_cache = []
+            return self.new_tokens_cache
+        
+        new_tokens = set()
+        for index in self.indices.values():
+            for token in index:
+                new_tokens.add(token)
+        self.new_tokens_cache = sorted(list(new_tokens))
+        return self.new_tokens_cache
     
     def get_all_items(self):
         """Get all unique items in the dataset (in SID format if mapping exists)"""

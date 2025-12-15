@@ -23,27 +23,48 @@ class Collator(object):
 
     def __call__(self, batch):
 
-        input_texts = [d["input_ids"] for d in batch]
-        full_texts = [d["labels"] + self.tokenizer.eos_token for d in batch]
+        his_sep = getattr(self.args, "his_sep", ",")
+        prompt_texts = [d["input_ids"] for d in batch]
+        target_texts = [d["labels"] for d in batch]
+
+        prompt_prefixes = [t + (his_sep if t else "") for t in prompt_texts]
+        full_texts = [p + y + self.tokenizer.eos_token for p, y in zip(prompt_prefixes, target_texts)]
+
         inputs = self.tokenizer(
-            text = full_texts,
-            text_target = input_texts,
+            full_texts,
             return_tensors="pt",
             padding="longest",
             max_length=self.tokenizer.model_max_length,
             truncation=True,
             return_attention_mask=True,
+            add_special_tokens=False,
         )
-        labels = copy.deepcopy(inputs["input_ids"])
+
+        labels = inputs["input_ids"].clone()
+        labels[labels == self.tokenizer.pad_token_id] = -100
+
         if self.only_train_response:
-            # ignore padding
-            labels[labels == self.tokenizer.pad_token_id] = -100
-            # ignore input text
-            labels[torch.where(inputs["labels"] != self.tokenizer.pad_token_id)] = -100
+            max_len = labels.size(1)
+            for i, prompt_prefix in enumerate(prompt_prefixes):
+                prompt_ids = self.tokenizer(prompt_prefix, add_special_tokens=False)["input_ids"]
+                prompt_len = len(prompt_ids)
+                seq_len = int(inputs["attention_mask"][i].sum().item())
+                prompt_len = min(prompt_len, seq_len)
+                if prompt_len <= 0:
+                    continue
+
+                if getattr(self.tokenizer, "padding_side", "right") == "left":
+                    start = max_len - seq_len
+                    end = min(start + prompt_len, max_len)
+                    labels[i, start:end] = -100
+                else:
+                    end = min(prompt_len, max_len)
+                    labels[i, :end] = -100
 
         inputs["labels"] = labels
-
-
+        print(inputs["input_ids"][0])
+        print(inputs["labels"][0])
+        pp
         return inputs
     
 class Collator_emb(object):

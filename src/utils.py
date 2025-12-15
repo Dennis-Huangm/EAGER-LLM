@@ -88,7 +88,7 @@ def parse_train_args(parser):
     parser.add_argument("--save_and_eval_steps", type=int, default=1000)
     parser.add_argument("--fp16",  action="store_true", default=False)
     parser.add_argument("--bf16", action="store_true", default=False)
-    parser.add_argument("--deepspeed", type=str, default="./config/ds_z3_bf16.json")
+    parser.add_argument("--deepspeed", type=str, default=None)
     parser.add_argument("--semantic_emb", type=str, default=None)
     parser.add_argument("--behavior_emb", type=str, default=None)
 
@@ -170,6 +170,17 @@ def load_datasets(args):
         elif task.lower() == "preferenceobtain":
             dataset = PreferenceObtainDataset(args, prompt_sample_num=prompt_sample_num, sample_num=data_sample_num)
 
+        elif task.lower() == "interseqrec":
+            # Load from .inter file directly
+            dataset = SequentialInterDataset(
+                data_file=args.inter_file,
+                mode="train",
+                max_his_len=args.max_his_len,
+                his_sep=args.his_sep,
+                sample_num=data_sample_num,
+                index_file=args.index_file if hasattr(args, 'index_file') else None
+            )
+
         else:
             raise NotImplementedError
         print(f"loading dataset: {task.lower()}")
@@ -178,7 +189,11 @@ def load_datasets(args):
 
     train_data = ConcatDataset(train_datasets)
 
-    valid_data = SeqRecDataset(args,"valid",args.valid_prompt_sample_num)
+    # For interseqrec pretraining, no validation dataset is needed
+    if hasattr(args, 'inter_file') and args.inter_file and 'interseqrec' in [t.lower() for t in tasks]:
+        valid_data = None
+    else:
+        valid_data = SeqRecDataset(args,"valid",args.valid_prompt_sample_num)
 
     return train_data, valid_data
 
