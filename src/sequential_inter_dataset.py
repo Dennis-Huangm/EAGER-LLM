@@ -171,6 +171,31 @@ class SequentialInterDataset(Dataset):
         print(f"Processed {len(inter_data)} training instances")
         return inter_data
     
+    # def _process_train_data(self):
+    #     """Process data for training - create multiple samples per user"""
+    #     print("Processing training data...")
+    #     inter_data = []
+    #     for user_inter in self.user_inters:
+    #         items = user_inter['items']
+    #         if len(items) < 2:
+    #             continue
+    #         one_data = dict()
+    #         # Target item
+    #         target_item = items[-1]
+    #         # History items
+    #         history = items[:-1]
+    #         if self.max_his_len > 0:
+    #             history = history[-self.max_his_len:]
+    #         # Convert history items to sid format if mapping exists
+    #         if self.item_to_sid:
+    #             target_item = self.item_to_sid.get(target_item, target_item)
+    #             history = [self.item_to_sid.get(item_id, item_id) for item_id in history]
+    #         one_data["item"] = target_item
+    #         one_data["inters"] = self.his_sep.join(history) # 使用空格或其他分隔符拼接
+    #         inter_data.append(one_data)
+    #     print(f"Processed {len(inter_data)} training instances")
+    #     return inter_data
+    
     def _process_test_data(self):
         """Process data for testing - predict the last item, with caching"""
         cache_path = self._get_cache_path("_processed")

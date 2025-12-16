@@ -89,9 +89,9 @@ def test_ddp(args):
     with torch.no_grad():
         for step, batch in enumerate(tqdm(test_loader)):
             inputs = batch[0].to(device)
-            print(inputs["input_ids"][0])
+            # print(inputs["input_ids"][0])
             targets = batch[1]
-            print(targets[0])
+            # print(targets[0])
             bs = len(targets)
             num_beams = args.num_beams
             while True:
@@ -131,7 +131,7 @@ def test_ddp(args):
             )
             # Clean predictions: remove spaces and trailing commas
             predictions = [pred.strip().replace(" ", "").rstrip(",") for pred in predictions]
-            print(predictions[:20])
+            # print(predictions[:20])
 
             topk_res, wrong_code_single = get_topk_results(predictions, scores, targets, num_beams,
                                         all_items=all_items if args.filter_items else None)
