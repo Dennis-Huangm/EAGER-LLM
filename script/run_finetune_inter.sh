@@ -4,7 +4,7 @@ export CUDA_VISIBLE_DEVICES=0,1,3
 # Dataset configuration
 INTER_FILE=/home/hongminjie/EAGER-LLM/sequential-multievent-500m.inter
 INDEX_FILE=/home/hongminjie/EAGER-LLM/sequential-multievent-500m.index.json  # Optional: path to index.json for SID mapping
-BASE_MODEL=/home/hongminjie/MiniOneRec/yambda/model
+BASE_MODEL=/home/hongminjie/EAGER-LLM/model
 VERSION=v0
 OUTPUT_DIR=/home/hongminjie/EAGER-LLM/checkpoints/multievent/$VERSION
 
